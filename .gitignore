@@ -1,0 +1,34 @@
+# Large Data Files (sourced via Google Drive download)
+data/ntl/*.h5
+data/buildings/*.csv
+data/buildings/*.csv.gz
+
+# Generated Data Outputs
+data/POIs/*.csv
+data/h3_features.csv
+data/h3_building_features.csv
+data/h3_seas_scores.csv
+
+# Dynamic Worker Chrome Profiles
+chrome-profile-*
+
+# Python & Environment Caches
+__pycache__/
+*.pyc
+.DS_Store
+
+# Chrome Profile Caches (keep main profile clean)
+chrome-profile/BrowserMetrics/
+chrome-profile/GraphiteDawnCache/
+chrome-profile/optimization_guide_model_store/
+chrome-profile/component_crx_cache/
+chrome-profile/OnDeviceHeadSuggestModel/
+chrome-profile/WasmTtsEngine/
+chrome-profile/Default/History
+chrome-profile/Default/Visited Links
+chrome-profile/Default/Cache/
+chrome-profile/Default/GPUCache/
+chrome-profile/Default/Code Cache/
+chrome-profile/Default/ShaderCache/
+chrome-profile/BrowserMetrics-spare.pma
+src/chrome-profile/

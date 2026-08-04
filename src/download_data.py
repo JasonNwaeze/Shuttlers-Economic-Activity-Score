@@ -21,8 +21,8 @@ import sys
 NTL_DRIVE_ID = "1qQKxyj1-PwqwKzwjfkG_5hlZE-r0HbV0"
 NTL_FILENAME = "VNP46A3.A2026152.h18v08.002.2026201114105.h5"
 
-BUILDINGS_DRIVE_ID = "PLACEHOLDER_BUILDINGS_DRIVE_ID"   # ← replace with actual Drive file ID
-BUILDINGS_FILENAME = "103_buildings.csv"                 # ← replace with actual filename if different
+BUILDINGS_DRIVE_ID = "1D2ZX88B2sXzrFgEReUG6B9OToff_N737"
+BUILDINGS_FILENAME = "103_buildings.csv"
 
 # ─── Directory paths ──────────────────────────────────────────────────────────
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))

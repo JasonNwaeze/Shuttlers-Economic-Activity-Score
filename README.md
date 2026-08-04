@@ -133,19 +133,19 @@ The system was tested on **5 locations across Lagos** to validate that the scori
 | 4 | **Ikorodu** | 38.0 | 🔴 Low |
 | 5 | **Yaba** | 17.9 | 🔴 Low |
 
-![SEAS Score Rankings for Lagos pilot test](/Users/jasonnwaeze/.gemini/antigravity-ide/brain/e90c8810-2163-4426-bba8-aadcab2d7237/seas_ranking.png)
+![SEAS Score Rankings for Lagos pilot test](assets/seas_ranking.png)
 
 ### 6.2 What Drives Each Score
 
 The chart below shows how each feature contributes to the final score. Notice how Ikeja leads across nearly every dimension, while Victoria Island derives disproportionate value from NTL and hotel prices.
 
-![Feature contribution breakdown showing which indicators drive each location's score](/Users/jasonnwaeze/.gemini/antigravity-ide/brain/e90c8810-2163-4426-bba8-aadcab2d7237/seas_breakdown.png)
+![Feature contribution breakdown showing which indicators drive each location's score](assets/seas_breakdown.png)
 
 ### 6.3 Feature Profiles
 
 The radar chart reveals each location's unique economic "fingerprint." This helps operations teams understand *why* an area scored the way it did.
 
-![Radar chart comparing the normalized feature profiles of all 5 locations](/Users/jasonnwaeze/.gemini/antigravity-ide/brain/e90c8810-2163-4426-bba8-aadcab2d7237/seas_radar.png)
+![Radar chart comparing the normalized feature profiles of all 5 locations](assets/seas_radar.png)
 
 **Key observations:**
 - **Ikeja** has the most well-rounded profile — strong across buildings, restaurants, banks, and hotels
@@ -158,7 +158,7 @@ The radar chart reveals each location's unique economic "fingerprint." This help
 
 Nighttime lights from NASA's VIIRS satellite provide an objective, bias-free measure of human activity.
 
-![Nighttime light radiance comparison across all 5 locations](/Users/jasonnwaeze/.gemini/antigravity-ide/brain/e90c8810-2163-4426-bba8-aadcab2d7237/ntl_comparison.png)
+![Nighttime light radiance comparison across all 5 locations](assets/ntl_comparison.png)
 
 Victoria Island — the primary business and financial district of Lagos — registers **6.4× more light** than Ikorodu, a more suburban area. This aligns perfectly with real-world expectations.
 

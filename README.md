@@ -23,21 +23,11 @@ The system works in four stages:
 ```mermaid
 graph LR
     A["📡 Data Collection"] --> B["🔬 Feature Extraction"]
-    B --> C["📊 Normalization & Scoring"]
-    C --> D["📋 Final Rankings"]
-```
-
-### Stage 1: Data Collection
-We collect data from **three independent sources** — satellite imagery, building footprints, and commercial Points of Interest (POIs). Each source captures a different dimension of economic activity.
-
-### Stage 2: Feature Extraction
-Raw data is processed and aggregated into **9 measurable features** per geographic area (H3 hexagonal cell). See Section 4 for details.
-
 ### Stage 3: Normalization & Scoring
 Each feature is normalized to a 0–1 scale using Min-Max scaling, then multiplied by its assigned weight to produce the final SEAS score.
 
-### Stage 4: Final Rankings
-Areas are ranked by their SEAS score and classified into tiers for decision-making.
+### Stage 4: Map Layers Server Formatting
+Data is combined with WorldPop population density estimates and cleanly separated into `upload/res{resolution}_economic.csv` and `upload/res{resolution}_population.csv` formats exactly matching the ingestion requirements of the Shuttlers Map Layers Server backend.
 
 ---
 
@@ -217,12 +207,22 @@ Victoria Island — the primary business and financial district of Lagos — reg
 3. Download the CSV file(s)
 4. Place them in `data/buildings/`
 
-### 7.3 Points of Interest (POIs)
+### 7.3 Population Density
+
+| Property | Detail |
+|----------|--------|
+| **Source** | WorldPop |
+| **Product** | Gridded Population estimates (~100m) for Nigeria |
+| **Portal** | [https://wopr.worldpop.org/?NGA/Population](https://wopr.worldpop.org/?NGA/Population) |
+| **Format** | GeoTIFF (.tif) |
+| **Cost** | Free (Creative Commons) |
+
+### 7.4 Points of Interest (POIs)
 
 | Property | Detail |
 |----------|--------|
 | **Source** | Google Maps (scraped) |
-| **Method** | Automated Selenium-based web scraping |
+| **Method** | Automated Selenium-based web scraping (optimized 1920x1080 one-pass headless architecture) |
 | **Categories** | Restaurants, Hotels, Banks, Gas Stations |
 | **Features Used** | Count per category, average hotel price, Plus Code geolocation |
 
@@ -230,7 +230,7 @@ Victoria Island — the primary business and financial district of Lagos — reg
 
 ## 8. How the Scripts Work
 
-The system consists of 5 Python scripts that form a data pipeline:
+The system consists of 6 Python scripts orchestrated by `main.py`:
 
 ```mermaid
 graph TB
@@ -241,34 +241,24 @@ graph TB
     G --> F
     F --> H["src/calculate_seas.py<br/>SEAS Calculator"]
     E --> H
-    H --> I["data/h3_seas_scores.csv<br/>📊 Final Output"]
+    H --> I["data/h3_seas_scores.csv"]
+    J["src/extract_population.py"] --> K["data/h3_population.csv"]
+    I --> L["Upload Formatter"]
+    K --> L
+    L --> M["upload/resX_economic.csv<br/>upload/resX_population.csv<br/>📤 Ready for Map Layers Server"]
 ```
-
-| Script | Purpose | Input | Output |
-|--------|---------|-------|--------|
-| `src/google_maps.py` | Scrapes Google Maps for restaurants, hotels, banks, and gas stations in each target area | H3 cell coordinates | `data/POIs/*.csv` |
-| `src/open_buildings.py` | Processes Google Open Buildings data to count buildings per H3 cell | `data/buildings/*.csv.gz` | `data/h3_building_features.csv` |
-| `src/feature_engineering.py` | Aggregates POI data into feature counts per H3 cell using Plus Code geolocation | `data/POIs/*.csv` | `data/h3_features.csv` |
-| `src/extract_ntl.py` | Extracts nighttime radiance from NASA HDF5 satellite data per H3 cell | `data/ntl/*.h5` | Updates `data/h3_features.csv` |
-| `src/calculate_seas.py` | Merges all features, normalizes, applies weights, and calculates SEAS scores | `data/h3_features.csv` + `data/h3_building_features.csv` | `data/h3_seas_scores.csv` |
 
 ### Running the Full Pipeline
 
 ```bash
-# Step 1: Scrape POIs (requires Chrome)
-python3 main.py --workers 2
+# Run the pipeline specifying the target H3 resolution (defaults to 7)
+python3 main.py --resolution 7
 
-# Step 2: Process building footprints
-python3 src/open_buildings.py
+# Run with 4 parallel scrapers
+python3 main.py --workers 4
 
-# Step 3: Aggregate POI features
-python3 src/feature_engineering.py
-
-# Step 4: Extract nighttime lights
-python3 src/extract_ntl.py
-
-# Step 5: Calculate SEAS scores
-python3 src/calculate_seas.py
+# Run with visible browsers for debugging
+python3 main.py --headed
 ```
 
 ---
@@ -317,7 +307,6 @@ The architecture is designed so that **no code changes are needed** to add new a
 
 ### Future Enhancements
 
-- **Population Density**: Integrate WorldPop or Meta population density estimates
 - **Road Network Analysis**: Add road density and intersection count as features
 - **Public Transit Data**: Incorporate existing transit route coverage to identify underserved areas
 - **Temporal Trends**: Track SEAS scores over time to identify growth corridors

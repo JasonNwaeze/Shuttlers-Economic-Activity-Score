@@ -5,9 +5,9 @@ data/buildings/*.csv.gz
 
 # Generated Data Outputs
 data/POIs/*.csv
-data/h3_features.csv
-data/h3_building_features.csv
-data/h3_seas_scores.csv
+data/output/*.csv
+upload/*.csv
+data/population/*.tif
 
 # Dynamic Worker Chrome Profiles
 chrome-profile-*

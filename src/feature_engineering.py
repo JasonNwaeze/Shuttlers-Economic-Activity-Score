@@ -8,7 +8,7 @@ from h3_utils import get_target_h3s
 
 RESOLUTION = 7
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "POIs")
-OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "h3_features.csv")
+OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "output", "h3_features.csv")
 
 def process_pois():
     target_h3_list = get_target_h3s()

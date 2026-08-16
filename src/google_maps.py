@@ -10,14 +10,11 @@ from concurrent.futures import ThreadPoolExecutor
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-
 
 from h3_utils import get_target_h3s, get_center
 
@@ -35,265 +32,184 @@ def load_target_h3s(csv_path=None):
 
 def create_driver(profile_path, headless=True):
     options = webdriver.ChromeOptions()
-    
     if headless:
         options.add_argument("--headless=new")
-
+    
     options.add_argument("--start-maximized")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
+    options.add_argument("--disable-gpu")
     options.add_argument(f"--user-data-dir={profile_path}")
 
     driver = webdriver.Chrome(
         service=Service(ChromeDriverManager().install()),
         options=options
     )
-
     return driver
-
 
 def open_location(driver, lat, lng):
     driver.get(f"https://www.google.com/maps/@{lat},{lng},15z")
-
-
-def search(driver, query):
-
-    wait = WebDriverWait(driver, 20)
-
-    # Close any open place detail card left over from previous searches
-    try:
-        close_btn = driver.find_element(By.CSS_SELECTOR, "button[aria-label='Close']")
-        close_btn.click()
-        time.sleep(1)
-    except Exception:
-        pass
-
-    search_box = wait.until(
-        EC.element_to_be_clickable(
-            (By.CSS_SELECTOR, "input[name='q']")
-        )
-    )
-
-    search_box.click()
-
-    search_box.send_keys(Keys.COMMAND + "a" if driver.capabilities.get('platformName') in ['mac', 'darwin'] else Keys.CONTROL + "a")
-    search_box.send_keys(Keys.BACKSPACE)
-    search_box.clear()
-
-    search_box.send_keys(query)
-    search_box.send_keys(Keys.ENTER)
-
-    # wait for results pane with fallback retry
-    try:
-        wait.until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "div[role='feed']")
-            )
-        )
-    except TimeoutException:
-        # Re-submit ENTER key press if feed didn't appear on first attempt
-        search_box.send_keys(Keys.ENTER)
-        wait.until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "div[role='feed']")
-            )
-        )
-
-    time.sleep(2)
-
-    return scrape_results(driver, query)
-
-def scroll_results(driver):
-    pane = driver.find_element(
-        By.CSS_SELECTOR,
-        "div[role='feed']"
-    )
-
-    previous = 0
-    unchanged_count = 0
-    max_unchanged = 3  # Must see same height 3 times in a row before stopping
-
-    while True:
-        driver.execute_script(
-            "arguments[0].scrollTop = arguments[0].scrollHeight",
-            pane
-        )
-
-        time.sleep(3)  # Give headless Chrome time to render new results
-
-        current = driver.execute_script(
-            "return arguments[0].scrollHeight",
-            pane
-        )
-
-        if current == previous:
-            unchanged_count += 1
-            if unchanged_count >= max_unchanged:
-                break  # Truly at the end
-        else:
-            unchanged_count = 0  # Reset counter if height changed
-
-        previous = current
-
+    time.sleep(3)
 
 def parse_price(price):
-
     digits = re.sub(r"[^\d]", "", price)
-
     if digits:
         return int(digits)
-
     return None
 
-def close_place(driver):
-
-    wait = WebDriverWait(driver, 20)
-
-    close_button = wait.until(
-        EC.element_to_be_clickable(
-            (
-                By.CSS_SELECTOR,
-                "button[aria-label='Close']"
-            )
-        )
-    )
-
-    close_button.click()
-
-    wait.until(
-        EC.presence_of_element_located(
-            (
-                By.CSS_SELECTOR,
-                "div[role='feed']"
-            )
-        )
-    )
-
-
-def scrape_place(driver, place_name, hotel=False):
-
-    wait = WebDriverWait(driver, 20)
-
-    plus_code = None
-    hotel_price = None
-
-    wait.until(
-        EC.presence_of_element_located(
-            (
-                By.CSS_SELECTOR,
-                "div.Io6YTe"
-            )
-        )
-    )
-
-    elements = driver.find_elements(
-        By.CSS_SELECTOR,
-        "div.Io6YTe"
-    )
-
-    for e in elements:
-
-        text = e.text.strip()
-
-        if re.search(r'[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}', text):
-            plus_code = text
-            break
-
-    if hotel:
-
-        try:
-
-            price = driver.find_element(
-                By.CSS_SELECTOR,
-                "span.fontTitleLarge.Cbys4b"
-            )
-
-            hotel_price = parse_price(price.text)
-
-        except:
-            hotel_price = None
-
-    return {
-        "name": place_name,
-        "plus_code": plus_code,
-        "hotel_price": hotel_price
-    }
-
-
-def search_place_by_name(driver, name, hotel=False):
-
+def search(driver, query):
     wait = WebDriverWait(driver, 15)
 
-    search_box = wait.until(
-        EC.element_to_be_clickable(
-            (By.CSS_SELECTOR, "input[name='q']")
+    try:
+        # XPath for search box
+        search_box = wait.until(
+            EC.element_to_be_clickable((By.XPATH, "//input[@id='searchboxinput'] | //input[@name='q']"))
         )
-    )
+        
+        # Clear search box thoroughly
+        search_box.send_keys(Keys.COMMAND + "a" if driver.capabilities.get('platformName') in ['mac', 'darwin'] else Keys.CONTROL + "a")
+        search_box.send_keys(Keys.BACKSPACE)
+        search_box.clear()
 
-    # Clear search box thoroughly
-    search_box.send_keys(Keys.COMMAND + "a" if driver.capabilities.get('platformName') in ['mac', 'darwin'] else Keys.CONTROL + "a")
-    search_box.send_keys(Keys.BACKSPACE)
-    search_box.clear()
+        # Enter query
+        search_box.send_keys(query)
+        search_box.send_keys(Keys.ENTER)
 
-    search_query = f"{name} Lagos" if "lagos" not in name.lower() else name
-    search_box.send_keys(search_query)
-    search_box.send_keys(Keys.ENTER)
+        # Wait for feed to load
+        feed_xpath = "//div[@role='feed']"
+        feed = wait.until(EC.presence_of_element_located((By.XPATH, feed_xpath)))
+        
+        return scrape_results(driver, query, feed_xpath)
+        
+    except TimeoutException:
+        print(f"  [Timeout] Failed to load search feed for {query}.")
+        return []
 
-    time.sleep(2)
+def scrape_results(driver, query, feed_xpath):
+    wait = WebDriverWait(driver, 15)
+    
+    results = []
+    processed_names = set()
+    index = 0
+    
+    is_hotel = query.lower() == "hotels"
+    
+    end_of_list_xpath = "//*[contains(text(), \"You've reached the end of the list\")]"
+    spinner_xpath = "//div[@role='progressbar']"
+    item_xpath = "//div[@role='feed']//a[contains(@href, '/maps/place/')]"
 
-    # If results list appears instead of direct place details, click the first result card
-    cards = driver.find_elements(By.CSS_SELECTOR, "div[role='feed'] a.hfpxzc")
-    if cards:
-        try:
-            driver.execute_script("arguments[0].click();", cards[0])
-            time.sleep(1)
-        except Exception as e:
-            print(f"  Warning: could not click first result: {e}")
-
-    return scrape_place(driver, name, hotel)
-
-
-def scrape_results(driver, query):
-
-    scroll_results(driver)
-
-    cards = driver.find_elements(
-        By.CSS_SELECTOR,
-        "div[role='feed'] a.hfpxzc"
-    )
-
-    names = []
-    for c in cards:
-        name = c.get_attribute("aria-label")
-        if name and name not in names:
-            names.append(name)
-
-    print(f"Phase 1 complete: Found {len(names)} unique places")
-
-    data = []
-    hotel = query.lower() == "hotels"
-
-    print("Phase 2: Scraping place details via individual searches...")
-
-    for i, name in enumerate(names):
-
-        print(f"[{i+1}/{len(names)}] Searching place: {name}")
-
-        try:
-            place_info = search_place_by_name(driver, name, hotel)
-            data.append(place_info)
-            print(f"  -> Plus code: {place_info.get('plus_code')}")
-        except Exception as e:
-            print(f"Error scraping {name}: {e}")
-
-    return data
-
+    while True:
+        # Get current visible items
+        items = driver.find_elements(By.XPATH, item_xpath)
+        
+        if index < len(items):
+            try:
+                # Re-fetch items to avoid StaleElementReferenceException
+                items = driver.find_elements(By.XPATH, item_xpath)
+                
+                if index >= len(items):
+                    # Force a scroll to trigger DOM reload if index out of bounds
+                    feed = driver.find_element(By.XPATH, feed_xpath)
+                    driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", feed)
+                    time.sleep(2)
+                    continue
+                    
+                item = items[index]
+                name = item.get_attribute("aria-label") or f"Place {index+1}"
+                
+                if name in processed_names:
+                    index += 1
+                    continue
+                
+                # Scroll item into view and click
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", item)
+                time.sleep(1)
+                driver.execute_script("arguments[0].click();", item)
+                
+                # Wait for place details to render (Wait for h1 element to appear)
+                try:
+                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, "//h1")))
+                except:
+                    time.sleep(2) # Fallback static wait
+                
+                # Extract Plus Code
+                plus_code = None
+                user_xpath = "/html/body/div[1]/div[2]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[11]/div[7]/button/div/div[2]/div[1]"
+                semantic_xpath = "//button[contains(@aria-label, 'Plus code:') or contains(@data-item-id, 'oloc')]"
+                combined_xpath = f"{user_xpath} | {semantic_xpath}"
+                
+                try:
+                    plus_elem = WebDriverWait(driver, 3).until(
+                        EC.presence_of_element_located((By.XPATH, combined_xpath))
+                    )
+                    raw_text = plus_elem.text
+                    # Search for valid Plus Code pattern
+                    match = re.search(r'[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}.*', raw_text, re.IGNORECASE)
+                    if match:
+                        plus_code = match.group(0).strip()
+                    else:
+                        plus_code = raw_text.replace("\n", " ").strip()
+                except:
+                    plus_code = None
+                    
+                # Extract Price if hotel
+                price_val = None
+                if is_hotel:
+                    price_elements = driver.find_elements(By.XPATH, "//span[contains(text(), '₦')]")
+                    if price_elements:
+                        price_val = parse_price(price_elements[0].text)
+                        
+                results.append({
+                    "name": name,
+                    "plus_code": plus_code,
+                    "hotel_price": price_val
+                })
+                processed_names.add(name)
+                
+                index += 1
+                
+            except Exception as e:
+                # Catch stale elements and timeout issues, just skip item
+                index += 1
+        else:
+            # We've processed all items currently in the DOM. Time to scroll for more.
+            try:
+                feed = driver.find_element(By.XPATH, feed_xpath)
+                driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", feed)
+                time.sleep(1.5)
+            except Exception:
+                break
+            
+            # Check for spinner
+            spinners = driver.find_elements(By.XPATH, spinner_xpath)
+            if spinners and spinners[0].is_displayed():
+                try:
+                    WebDriverWait(driver, 10).until(
+                        EC.invisibility_of_element_located((By.XPATH, spinner_xpath))
+                    )
+                except:
+                    pass
+            
+            # Check for end of list marker
+            end_elements = driver.find_elements(By.XPATH, end_of_list_xpath)
+            if end_elements and end_elements[0].is_displayed():
+                break
+                
+            # Verify if we actually got new items
+            new_items = driver.find_elements(By.XPATH, item_xpath)
+            if len(new_items) <= index:
+                break
+                
+    return results
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "POIs")
 
-
 def save_results(query, h3_index, results):
+    if not results:
+        print(f"Skipping save for empty results -> {query} ({h3_index})")
+        return
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     filename = f"{query.replace(' ', '_')}_{h3_index}.csv"
     filepath = os.path.join(OUTPUT_DIR, filename)
@@ -301,14 +217,9 @@ def save_results(query, h3_index, results):
     file_exists = os.path.exists(filepath)
 
     with open(filepath, "a", newline="", encoding="utf-8") as f:
-
         writer = csv.DictWriter(
             f,
-            fieldnames=[
-                "name",
-                "plus_code",
-                "hotel_price"
-            ]
+            fieldnames=["name", "plus_code", "hotel_price"]
         )
 
         if not file_exists:
@@ -318,29 +229,26 @@ def save_results(query, h3_index, results):
 
     print(f"Saved {len(results)} rows -> {filepath}")
 
-
 def csv_exists(query, h3_index):
     filename = f"{query.replace(' ', '_')}_{h3_index}.csv"
-    return os.path.exists(os.path.join(OUTPUT_DIR, filename))
-
+    filepath = os.path.join(OUTPUT_DIR, filename)
+    if not os.path.exists(filepath):
+        return False
+    # Only consider it complete if it has more than just the header line
+    with open(filepath, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+        return len(lines) > 1
 
 def deduplicate(results):
-
     seen = set()
     cleaned = []
-
     for row in results:
-
         key = row["plus_code"] or row["name"]
-
         if key in seen:
             continue
-
         seen.add(key)
         cleaned.append(row)
-
     return cleaned
-
 
 def clean_cache(profile_dir):
     """Deletes large caching folders inside a Chrome profile to save disk space."""
@@ -355,7 +263,6 @@ def clean_cache(profile_dir):
                 shutil.rmtree(path, ignore_errors=True)
             except Exception:
                 pass
-
 
 def process_location(loc, headless, profile_queue):
     h3_index = loc["h3_index"]
@@ -377,7 +284,6 @@ def process_location(loc, headless, profile_queue):
             
             center_lat, center_lng = get_center(h3_index)
             open_location(driver, center_lat, center_lng)
-            time.sleep(2)
             
             results = deduplicate(search(driver, query))
             save_results(query, h3_index, results)
@@ -394,7 +300,6 @@ def process_location(loc, headless, profile_queue):
         clean_cache(profile_path)
         profile_queue.put(profile_path)
         print(f"[Worker] Finished {h3_index}")
-
 
 def run_scraper(workers=2, headless=True):
     locations = load_target_h3s()
@@ -431,7 +336,6 @@ def run_scraper(workers=2, headless=True):
             future.result()
 
     print("[Scraper] Done.")
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Google Maps Scraper by H3 Index")

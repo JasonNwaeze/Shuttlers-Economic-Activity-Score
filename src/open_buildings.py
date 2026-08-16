@@ -8,7 +8,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 
 INPUT_CSV = os.path.join(PROJECT_ROOT, "data", "shared_h3_input.csv")
 BUILDINGS_DIR = os.path.join(PROJECT_ROOT, "data", "buildings")
-OUTPUT_CSV = os.path.join(PROJECT_ROOT, "data", "h3_building_features.csv")
+OUTPUT_CSV = os.path.join(PROJECT_ROOT, "data", "output", "h3_building_features.csv")
 CHUNK_SIZE = 50000
 CONFIDENCE_THRESHOLD = 0.77
 H3_RESOLUTION = 7

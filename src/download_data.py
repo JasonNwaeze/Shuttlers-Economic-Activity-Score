@@ -24,10 +24,14 @@ NTL_FILENAME = "VNP46A3.A2026152.h18v08.002.2026201114105.h5"
 BUILDINGS_DRIVE_ID = "1D2ZX88B2sXzrFgEReUG6B9OToff_N737"
 BUILDINGS_FILENAME = "103_buildings.csv"
 
+POPULATION_DRIVE_ID = "18QUgoSGmWFS5CjjtK7sChh3873v5dQyL"
+POPULATION_FILENAME = "NGA_population_v3_0_gridded.tif"
+
 # ─── Directory paths ──────────────────────────────────────────────────────────
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 NTL_DIR = os.path.join(PROJECT_ROOT, "data", "ntl")
 BUILDINGS_DIR = os.path.join(PROJECT_ROOT, "data", "buildings")
+POPULATION_DIR = os.path.join(PROJECT_ROOT, "data", "population")
 
 
 def _ensure_gdown():
@@ -63,6 +67,7 @@ def ensure_data():
     """
     os.makedirs(NTL_DIR, exist_ok=True)
     os.makedirs(BUILDINGS_DIR, exist_ok=True)
+    os.makedirs(POPULATION_DIR, exist_ok=True)
 
     # ── NTL ──────────────────────────────────────────────────────────────────
     ntl_files = glob.glob(os.path.join(NTL_DIR, "*.h5"))
@@ -95,6 +100,17 @@ def ensure_data():
                 dest_path=os.path.join(BUILDINGS_DIR, BUILDINGS_FILENAME),
                 label="Open Buildings footprints (.csv)"
             )
+
+    # ── Population ────────────────────────────────────────────────────────────
+    population_files = glob.glob(os.path.join(POPULATION_DIR, "*.tif"))
+    if population_files:
+        print(f"[Bootstrap] Population data found: {os.path.basename(population_files[0])} — skipping download.")
+    else:
+        _download(
+            drive_id=POPULATION_DRIVE_ID,
+            dest_path=os.path.join(POPULATION_DIR, POPULATION_FILENAME),
+            label="WorldPop Population (.tif)"
+        )
 
 
 if __name__ == "__main__":

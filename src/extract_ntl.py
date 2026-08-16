@@ -17,10 +17,10 @@ def find_ntl_file(data_dir):
 def main():
     base_dir = os.path.dirname(os.path.dirname(__file__))
     ntl_dir = os.path.join(base_dir, "data", "ntl")
-    h3_features_file = os.path.join(base_dir, "data", "h3_features.csv")
+    FEATURES_CSV = os.path.join(base_dir, "data", "output", "h3_features.csv")
     
     # Read target H3s
-    df_h3 = pd.read_csv(h3_features_file)
+    df_h3 = pd.read_csv(FEATURES_CSV)
     target_h3s = set(df_h3['h3'].dropna().tolist())
     print(f"Target H3 cells: {target_h3s}")
     
@@ -113,8 +113,8 @@ def main():
     df_merged = df_h3.merge(df_agg, on='h3', how='left')
     
     # Save
-    df_merged.to_csv(h3_features_file, index=False)
-    print(f"\nSuccessfully updated {h3_features_file}")
+    df_merged.to_csv(FEATURES_CSV, index=False)
+    print(f"\nSuccessfully updated {FEATURES_CSV}")
     
     # Display the final features
     print("\nValidation check:")

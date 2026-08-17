@@ -23,6 +23,7 @@ The system works in four stages:
 ```mermaid
 graph LR
     A["📡 Data Collection"] --> B["🔬 Feature Extraction"]
+```
 ### Stage 3: Normalization & Scoring
 Each feature is normalized to a 0–1 scale using Min-Max scaling, then multiplied by its assigned weight to produce the final SEAS score.
 
@@ -51,14 +52,14 @@ Each feature was chosen because it is a proven indicator of economic activity, c
 
 | # | Feature | Weight | Why It Matters |
 |---|---------|--------|----------------|
-| 1 | **Mean Nighttime Light (NTL)** | 20% | Satellite-measured light radiance at night. The single strongest proxy for overall economic activity, infrastructure quality, and human presence. Extensively validated in academic research. |
+| 1 | **Mean Nighttime Light (NTL)** | 25% | Satellite-measured light radiance at night. The single strongest proxy for overall economic activity, infrastructure quality, and human presence. Extensively validated in academic research. |
 | 2 | **Building Count** | 15% | The total number of detected building footprints. High building density means more people living and working in the area. |
-| 3 | **Large Building Count** | 10% | Buildings with footprints > 200 m². Captures offices, malls, hospitals, universities, and large residential complexes that generate significant travel demand. |
-| 4 | **Restaurant Count** | 10% | Restaurants indicate commercial vibrancy. Areas with many restaurants attract people throughout the day and evening, generating travel demand. |
-| 5 | **Bank Count** | 10% | Banks cluster in areas with significant financial and business activity. Their presence signals formal economic infrastructure. |
-| 6 | **Hotel Count** | 10% | Hotels reflect business travel, tourism, and commercial importance. Areas with many hotels see high visitor throughput. |
-| 7 | **Average Hotel Price** | 10% | A proxy for purchasing power and premium commercial activity. High average hotel prices indicate affluent business districts. |
-| 8 | **Gas Station Count** | 10% | Gas stations indicate vehicle traffic volume and road network utilization — directly relevant to commuter transport demand. |
+| 3 | **Average Hotel Price** | 15% | A proxy for purchasing power and premium commercial activity. High average hotel prices indicate affluent business districts. |
+| 4 | **Large Building Count** | 10% | Buildings with footprints > 200 m². Captures offices, malls, hospitals, universities, and large residential complexes that generate significant travel demand. |
+| 5 | **Restaurant Count** | 7.5% | Restaurants indicate commercial vibrancy. Areas with many restaurants attract people throughout the day and evening, generating travel demand. |
+| 6 | **Bank Count** | 7.5% | Banks cluster in areas with significant financial and business activity. Their presence signals formal economic infrastructure. |
+| 7 | **Hotel Count** | 7.5% | Hotels reflect business travel, tourism, and commercial importance. Areas with many hotels see high visitor throughput. |
+| 8 | **Gas Station Count** | 7.5% | Gas stations indicate vehicle traffic volume and road network utilization — directly relevant to commuter transport demand. |
 | 9 | **Avg Building Confidence** | 5% | A quality metric from the building detection model. Higher confidence means the building data for this area is more reliable. |
 
 ---
@@ -80,14 +81,14 @@ This ensures that features with very different units (e.g., radiance in nW/cm²/
 The normalized features are multiplied by their weights and summed:
 
 ```
-SEAS = 0.20 × NTL
+SEAS = 0.25 × NTL
      + 0.15 × Building Count
+     + 0.15 × Hotel Price
      + 0.10 × Large Buildings
-     + 0.10 × Restaurants
-     + 0.10 × Banks
-     + 0.10 × Hotels
-     + 0.10 × Hotel Price
-     + 0.10 × Gas Stations
+     + 0.075 × Restaurants
+     + 0.075 × Banks
+     + 0.075 × Hotels
+     + 0.075 × Gas Stations
      + 0.05 × Building Confidence
 ```
 

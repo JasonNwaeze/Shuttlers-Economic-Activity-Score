@@ -40,14 +40,14 @@ def calculate_seas():
             
     # Calculate SEAS using the Affluence-weighted model
     weights = {
-        'mean_ntl_norm': 0.20,
-        'avg_hotel_price_norm': 0.20,
-        'banks_norm': 0.10,
-        'hotels_norm': 0.10,
-        'restaurants_norm': 0.10,
-        'gas_stations_norm': 0.10,
+        'mean_ntl_norm': 0.25,
+        'building_count_norm': 0.15,
+        'avg_hotel_price_norm': 0.15,
         'large_buildings_norm': 0.10,
-        'building_count_norm': 0.05,
+        'restaurants_norm': 0.075,
+        'banks_norm': 0.075,
+        'hotels_norm': 0.075,
+        'gas_stations_norm': 0.075,
         'avg_building_confidence_norm': 0.05
     }
     

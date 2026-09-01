@@ -50,20 +50,34 @@ def format_upload(resolution):
     seas_path = os.path.join(base_dir, "data", "output", "h3_seas_scores.csv")
     if os.path.exists(seas_path):
         df_seas = pd.read_csv(seas_path)
-        df_econ = df_seas[['h3', 'SEAS']].rename(columns={'h3': 'h3_index', 'SEAS': 'score'})
+        
+        # Drop raw/normalized intermediate columns to clean up the output
+        cols_to_drop = [col for col in df_seas.columns if col.endswith('_norm')]
+        if 'seas_raw' in df_seas.columns:
+            cols_to_drop.append('seas_raw')
+            
+        df_econ = df_seas.drop(columns=cols_to_drop, errors='ignore')
+        df_econ = df_econ.rename(columns={'h3': 'h3_index', 'SEAS': 'score'})
+        
         econ_out = os.path.join(upload_dir, f"res{resolution}_economic.csv")
         df_econ.to_csv(econ_out, index=False)
         print(f"[Upload Formatter] Created {econ_out}")
         
     # Format Population
     pop_path = os.path.join(base_dir, "data", "output", "h3_population.csv")
+    build_path = os.path.join(base_dir, "data", "output", "h3_building_features.csv")
     if os.path.exists(pop_path):
         df_pop = pd.read_csv(pop_path)
+        
+        if os.path.exists(build_path):
+            df_build = pd.read_csv(build_path)[['h3', 'building_count']]
+            df_pop = pd.merge(df_pop, df_build, on='h3', how='left')
+            df_pop['building_count'] = df_pop['building_count'].fillna(0).astype(int)
+            
         df_pop = df_pop.rename(columns={'h3': 'h3_index'})
         pop_out = os.path.join(upload_dir, f"res{resolution}_population.csv")
         df_pop.to_csv(pop_out, index=False)
         print(f"[Upload Formatter] Created {pop_out}")
-
 
 def run_pipeline(workers=2, headless=True, resolution=7):
     start = time.time()

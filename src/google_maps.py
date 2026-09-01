@@ -5,6 +5,7 @@ import re
 import shutil
 import time
 import queue
+import openlocationcode.openlocationcode as olc
 from concurrent.futures import ThreadPoolExecutor
 
 from selenium import webdriver
@@ -48,34 +49,20 @@ def create_driver(profile_path, headless=True):
     )
     return driver
 
-def open_location(driver, lat, lng):
-    driver.get(f"https://www.google.com/maps/@{lat},{lng},15z")
-    time.sleep(3)
-
 def parse_price(price):
+    import re
     digits = re.sub(r"[^\d]", "", price)
     if digits:
         return int(digits)
     return None
 
-def search(driver, query):
+def search_direct(driver, lat, lng, query):
+    query_encoded = query.replace(" ", "+")
+    url = f"https://www.google.com/maps/search/{query_encoded}/@{lat},{lng},15z"
+    driver.get(url)
+    
     wait = WebDriverWait(driver, 15)
-
     try:
-        # XPath for search box
-        search_box = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//input[@id='searchboxinput'] | //input[@name='q']"))
-        )
-        
-        # Clear search box thoroughly
-        search_box.send_keys(Keys.COMMAND + "a" if driver.capabilities.get('platformName') in ['mac', 'darwin'] else Keys.CONTROL + "a")
-        search_box.send_keys(Keys.BACKSPACE)
-        search_box.clear()
-
-        # Enter query
-        search_box.send_keys(query)
-        search_box.send_keys(Keys.ENTER)
-
         # Wait for feed to load
         feed_xpath = "//div[@role='feed']"
         feed = wait.until(EC.presence_of_element_located((By.XPATH, feed_xpath)))
@@ -122,43 +109,41 @@ def scrape_results(driver, query, feed_xpath):
                     index += 1
                     continue
                 
-                # Scroll item into view and click
-                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", item)
-                time.sleep(1)
-                driver.execute_script("arguments[0].click();", item)
-                
-                # Wait for place details to render (Wait for h1 element to appear)
-                try:
-                    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.XPATH, "//h1")))
-                except:
-                    time.sleep(2) # Fallback static wait
-                
-                # Extract Plus Code
+                href = item.get_attribute("href")
                 plus_code = None
-                user_xpath = "/html/body/div[1]/div[2]/div[9]/div[9]/div/div/div[1]/div[3]/div/div[1]/div/div/div[2]/div[11]/div[7]/button/div/div[2]/div[1]"
-                semantic_xpath = "//button[contains(@aria-label, 'Plus code:') or contains(@data-item-id, 'oloc')]"
-                combined_xpath = f"{user_xpath} | {semantic_xpath}"
                 
-                try:
-                    plus_elem = WebDriverWait(driver, 3).until(
-                        EC.presence_of_element_located((By.XPATH, combined_xpath))
-                    )
-                    raw_text = plus_elem.text
-                    # Search for valid Plus Code pattern
-                    match = re.search(r'[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}.*', raw_text, re.IGNORECASE)
+                # Extract coordinates directly from href if available
+                if href:
+                    match = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', href)
                     if match:
-                        plus_code = match.group(0).strip()
-                    else:
-                        plus_code = raw_text.replace("\n", " ").strip()
-                except:
-                    plus_code = None
-                    
-                # Extract Price if hotel
+                        lat, lng = float(match.group(1)), float(match.group(2))
+                        plus_code = olc.encode(lat, lng)
+                
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", item)
+                
                 price_val = None
-                if is_hotel:
-                    price_elements = driver.find_elements(By.XPATH, "//span[contains(text(), '₦')]")
-                    if price_elements:
-                        price_val = parse_price(price_elements[0].text)
+                if is_hotel or not plus_code:
+                    time.sleep(0.5)
+                    driver.execute_script("arguments[0].click();", item)
+                    try:
+                        WebDriverWait(driver, 4).until(EC.presence_of_element_located((By.XPATH, "//h1")))
+                    except:
+                        time.sleep(1)
+                        
+                    # Fallback coordinate extraction from current URL
+                    if not plus_code:
+                        curr_url = driver.current_url
+                        match = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', curr_url)
+                        if not match:
+                            match = re.search(r'@(-?\d+\.\d+),(-?\d+\.\d+)', curr_url)
+                        if match:
+                            lat, lng = float(match.group(1)), float(match.group(2))
+                            plus_code = olc.encode(lat, lng)
+                    
+                    if is_hotel:
+                        price_elements = driver.find_elements(By.XPATH, "//span[contains(text(), '₦')]")
+                        if price_elements:
+                            price_val = parse_price(price_elements[0].text)
                         
                 results.append({
                     "name": name,
@@ -283,9 +268,7 @@ def process_location(loc, headless, profile_queue):
             print(f"[Worker] {h3_index} -> {query.upper()}")
             
             center_lat, center_lng = get_center(h3_index)
-            open_location(driver, center_lat, center_lng)
-            
-            results = deduplicate(search(driver, query))
+            results = deduplicate(search_direct(driver, center_lat, center_lng, query))
             save_results(query, h3_index, results)
             
     except Exception as e:

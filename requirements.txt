@@ -1,0 +1,20 @@
+# Core Data Processing & Analysis
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Geospatial & Spatial Indexing
+h3>=4.0.0
+shapely>=2.0.0
+openlocationcode>=1.0.1
+
+# Scientific Data Formats (Satellite & Raster Data)
+h5py>=3.8.0
+tifffile>=2023.1.1
+
+# Web Scraping & Browser Automation
+selenium>=4.15.0
+webdriver-manager>=4.0.0
+
+# Data Downloader
+gdown>=4.7.0
+requests>=2.31.0

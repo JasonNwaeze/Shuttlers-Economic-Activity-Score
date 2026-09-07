@@ -31,6 +31,14 @@ def load_target_h3s(csv_path=None):
     cells = get_target_h3s(csv_path)
     return [{"h3_index": cell} for cell in cells]
 
+CHROMEDRIVER_PATH = None
+
+def get_chromedriver_path():
+    global CHROMEDRIVER_PATH
+    if CHROMEDRIVER_PATH is None:
+        CHROMEDRIVER_PATH = ChromeDriverManager().install()
+    return CHROMEDRIVER_PATH
+
 def create_driver(profile_path, headless=True):
     options = webdriver.ChromeOptions()
     if headless:
@@ -44,7 +52,7 @@ def create_driver(profile_path, headless=True):
     options.add_argument(f"--user-data-dir={profile_path}")
 
     driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
+        service=Service(get_chromedriver_path()),
         options=options
     )
     return driver
@@ -294,6 +302,7 @@ def run_scraper(workers=2, headless=True):
         return
 
     print(f"[Scraper] Starting with {workers} workers. Headless: {headless}")
+    get_chromedriver_path()
 
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     master_profile = os.path.join(project_root, "chrome-profile")

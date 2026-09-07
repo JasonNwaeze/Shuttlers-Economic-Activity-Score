@@ -51,6 +51,13 @@ def create_driver(profile_path, headless=True):
     options.add_argument("--disable-gpu")
     options.add_argument(f"--user-data-dir={profile_path}")
 
+    # Anti-bot detection & standard user agent
+    options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    options.add_argument("--lang=en-US")
+
     driver = webdriver.Chrome(
         service=Service(get_chromedriver_path()),
         options=options
@@ -64,10 +71,35 @@ def parse_price(price):
         return int(digits)
     return None
 
+def handle_consent(driver):
+    """Dismisses Google's cookie consent dialogs on server / EU IPs."""
+    try:
+        if "consent.google" in driver.current_url:
+            buttons = driver.find_elements(By.XPATH, "//button[contains(., 'Accept all') or contains(., 'I agree') or contains(., 'Agree') or contains(., 'Tout accepter')]")
+            if buttons:
+                buttons[0].click()
+                time.sleep(2)
+                return
+            forms = driver.find_elements(By.XPATH, "//form//button")
+            if forms:
+                forms[0].click()
+                time.sleep(2)
+                return
+        
+        # In-page overlay consent modal
+        modal_buttons = driver.find_elements(By.XPATH, "//button[contains(., 'Accept all') or contains(., 'I agree') or contains(., 'Reject all')]")
+        if modal_buttons:
+            modal_buttons[0].click()
+            time.sleep(1)
+    except Exception:
+        pass
+
 def search_direct(driver, lat, lng, query):
     query_encoded = query.replace(" ", "+")
     url = f"https://www.google.com/maps/search/{query_encoded}/@{lat},{lng},15z"
     driver.get(url)
+    
+    handle_consent(driver)
     
     wait = WebDriverWait(driver, 15)
     try:
@@ -78,7 +110,7 @@ def search_direct(driver, lat, lng, query):
         return scrape_results(driver, query, feed_xpath)
         
     except TimeoutException:
-        print(f"  [Timeout] Failed to load search feed for {query}.")
+        print(f"  [Timeout] Failed to load search feed for {query}. (Page: '{driver.title}', URL: {driver.current_url})")
         return []
 
 def scrape_results(driver, query, feed_xpath):

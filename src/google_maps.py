@@ -172,13 +172,18 @@ def scrape_results(driver, query, feed_xpath):
                         lat, lng = float(match.group(1)), float(match.group(2))
                         plus_code = olc.encode(lat, lng)
                 
+                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", item)
+                
                 price_val = None
                 if is_hotel or not plus_code:
-                    time.sleep(0.5)
-                    driver.execute_script("arguments[0].click();", item)
-                    time.sleep(2.0)
-                        
-                    # Fallback coordinate extraction from current URL
+                    time.sleep(0.3)
+                    try:
+                        item.click()
+                    except Exception:
+                        driver.execute_script("arguments[0].click();", item)
+                    
+                    time.sleep(2.5)
+                    
                     if not plus_code:
                         curr_url = driver.current_url
                         match = re.search(r'!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)', curr_url)
@@ -187,42 +192,26 @@ def scrape_results(driver, query, feed_xpath):
                         if match:
                             lat, lng = float(match.group(1)), float(match.group(2))
                             plus_code = olc.encode(lat, lng)
-                    
-                    # Extract hotel price inside detail panel
-                    if is_hotel:
-                        try:
-                            price_elements = driver.find_elements(
-                                By.XPATH, 
-                                "//div[@role='main']//*[self::span or self::div][contains(text(), '₦') or contains(text(), 'NGN')]"
-                            )
-                            for pe in price_elements:
-                                p = extract_naira_price(pe.text)
-                                if p:
-                                    price_val = p
-                                    break
-                        except Exception:
-                            pass
                             
-                        # Click back to return to the search feed cleanly
-                        try:
-                            back_btns = driver.find_elements(By.XPATH, "//button[@aria-label='Back']")
-                            if back_btns:
-                                driver.execute_script("arguments[0].click();", back_btns[0])
-                                time.sleep(0.5)
-                        except Exception:
-                            pass
-                        
+                    if is_hotel:
+                        price_tags = driver.find_elements(By.CSS_SELECTOR, "span.fontTitleLarge.Cbys4b")
+                        if not price_tags:
+                            price_tags = driver.find_elements(By.CSS_SELECTOR, "span.fontTitleLarge, span.Cbys4b")
+                        for pt in price_tags:
+                            p = extract_naira_price(pt.text)
+                            if p:
+                                price_val = p
+                                break
+                
                 results.append({
                     "name": name,
                     "plus_code": plus_code,
                     "hotel_price": price_val
                 })
                 processed_names.add(name)
-                
                 index += 1
                 
             except Exception as e:
-                # Catch stale elements and timeout issues, just skip item
                 index += 1
         else:
             # We've processed all items currently in the DOM. Time to scroll for more.
@@ -271,7 +260,8 @@ def save_results(query, h3_index, results):
     with open(filepath, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["name", "plus_code", "hotel_price"]
+            fieldnames=["name", "plus_code", "hotel_price"],
+            extrasaction="ignore"
         )
 
         if not file_exists:

@@ -64,48 +64,25 @@ def create_driver(profile_path, headless=True):
     )
     return driver
 
-def extract_price_from_text(text):
-    """Extracts hotel price in Naira from a text snippet, supporting ₦, NGN, and foreign currencies if served."""
+def extract_naira_price(text):
+    """Extracts authentic hotel price in Naira (₦/NGN) from a text snippet."""
     if not text:
         return None
     
-    # 1. Direct Naira matches: ₦50,000 or NGN 50,000 or 50,000 NGN
-    naira_match = re.search(r'(?:₦|NGN)\s*([\d,]+)', text, re.IGNORECASE)
-    if not naira_match:
-        naira_match = re.search(r'([\d,]+)\s*(?:₦|NGN)', text, re.IGNORECASE)
-    if naira_match:
-        digits = re.sub(r"[^\d]", "", naira_match.group(1))
+    match = re.search(r'(?:₦|NGN)\s*([\d,]+)', text, re.IGNORECASE)
+    if not match:
+        match = re.search(r'([\d,]+)\s*(?:₦|NGN)', text, re.IGNORECASE)
+    if match:
+        digits = re.sub(r"[^\d]", "", match.group(1))
         if digits:
             val = int(digits)
-            if 3000 <= val <= 10000000:
+            # Realistic nightly hotel rates in Lagos: ₦5,000 - ₦10,000,000
+            if 5000 <= val <= 10000000:
                 return val
-
-    # 2. Fallback EUR (e.g. European cloud server IPs): ~1,700 NGN per EUR
-    eur_match = re.search(r'(?:€|EUR)\s*([\d,]+)', text, re.IGNORECASE)
-    if not eur_match:
-        eur_match = re.search(r'([\d,]+)\s*(?:€|EUR)', text, re.IGNORECASE)
-    if eur_match:
-        digits = re.sub(r"[^\d]", "", eur_match.group(1))
-        if digits:
-            val = int(digits)
-            if 5 <= val <= 10000:
-                return val * 1700
-
-    # 3. Fallback USD: ~1,550 NGN per USD
-    usd_match = re.search(r'(?:\$|USD)\s*([\d,]+)', text, re.IGNORECASE)
-    if not usd_match:
-        usd_match = re.search(r'([\d,]+)\s*(?:\$|USD)', text, re.IGNORECASE)
-    if usd_match:
-        digits = re.sub(r"[^\d]", "", usd_match.group(1))
-        if digits:
-            val = int(digits)
-            if 5 <= val <= 10000:
-                return val * 1550
-
     return None
 
 def parse_price(price):
-    return extract_price_from_text(price)
+    return extract_naira_price(price)
 
 def handle_consent(driver):
     """Dismisses Google's cookie consent dialogs on server / EU IPs."""
@@ -216,10 +193,10 @@ def scrape_results(driver, query, feed_xpath):
                         try:
                             price_elements = driver.find_elements(
                                 By.XPATH, 
-                                "//div[contains(@role, 'main') or contains(@class, 'm6QErb')]//*[self::span or self::div][contains(text(), '₦') or contains(text(), 'NGN') or contains(text(), '€') or contains(text(), '$')]"
+                                "//div[@role='main']//*[self::span or self::div][contains(text(), '₦') or contains(text(), 'NGN')]"
                             )
                             for pe in price_elements:
-                                p = extract_price_from_text(pe.text)
+                                p = extract_naira_price(pe.text)
                                 if p:
                                     price_val = p
                                     break

@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from h3_utils import get_target_h3s
 from google_maps import run_scraper
+from reindex_pois import reindex_pois
 from feature_engineering import process_pois
 from open_buildings import process_buildings
 from extract_ntl import main as extract_ntl
@@ -105,6 +106,10 @@ def run_pipeline(workers=2, headless=True, resolution=7):
     # ── Step 1: Scrape POIs from Google Maps ────────────────────
     banner(1, "Google Maps Scraper")
     run_scraper(workers=workers, headless=headless)
+
+    # ── Step 1.5: Re-index POIs into True H3 Cells ──────────────
+    banner("1.5", "Spatial Re-indexing (Slotting POIs into True H3 Cells)")
+    reindex_pois(resolution=resolution)
 
     # ── Step 2: Aggregate POI features per H3 ───────────────────
     banner(2, "Feature Engineering (POIs → h3_features.csv)")

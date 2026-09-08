@@ -172,17 +172,19 @@ def scrape_results(driver, query, feed_xpath):
                         lat, lng = float(match.group(1)), float(match.group(2))
                         plus_code = olc.encode(lat, lng)
                 
-                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", item)
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
                 
                 price_val = None
                 if is_hotel or not plus_code:
-                    time.sleep(0.3)
-                    try:
-                        item.click()
-                    except Exception:
-                        driver.execute_script("arguments[0].click();", item)
+                    driver.execute_script("arguments[0].click();", item)
                     
-                    time.sleep(2.5)
+                    # Dynamic wait: proceed immediately once URL/route switches
+                    first_word = name.split()[0].lower() if name else ""
+                    start_wait = time.time()
+                    while time.time() - start_wait < 2.0:
+                        if first_word and first_word in driver.current_url.lower():
+                            break
+                        time.sleep(0.1)
                     
                     if not plus_code:
                         curr_url = driver.current_url
@@ -194,14 +196,20 @@ def scrape_results(driver, query, feed_xpath):
                             plus_code = olc.encode(lat, lng)
                             
                     if is_hotel:
-                        price_tags = driver.find_elements(By.CSS_SELECTOR, "span.fontTitleLarge.Cbys4b")
-                        if not price_tags:
-                            price_tags = driver.find_elements(By.CSS_SELECTOR, "span.fontTitleLarge, span.Cbys4b")
-                        for pt in price_tags:
-                            p = extract_naira_price(pt.text)
-                            if p:
-                                price_val = p
+                        # Dynamic wait: exit the instant the rate renders (max 1.5s)
+                        start_price = time.time()
+                        while time.time() - start_price < 1.5:
+                            price_tags = driver.find_elements(By.CSS_SELECTOR, "span.fontTitleLarge.Cbys4b")
+                            if not price_tags:
+                                price_tags = driver.find_elements(By.CSS_SELECTOR, "span.fontTitleLarge, span.Cbys4b")
+                            for pt in price_tags:
+                                p = extract_naira_price(pt.text)
+                                if p:
+                                    price_val = p
+                                    break
+                            if price_val:
                                 break
+                            time.sleep(0.1)
                 
                 results.append({
                     "name": name,

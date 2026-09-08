@@ -176,6 +176,8 @@ def scrape_results(driver, query, feed_xpath):
                 
                 price_val = None
                 if is_hotel or not plus_code:
+                    # Purge any leftover price tags from previous hotels in DOM
+                    driver.execute_script("document.querySelectorAll('span.fontTitleLarge.Cbys4b, span.fontTitleLarge, span.Cbys4b').forEach(e => e.remove());")
                     driver.execute_script("arguments[0].click();", item)
                     
                     # Dynamic wait: proceed immediately once URL/route switches

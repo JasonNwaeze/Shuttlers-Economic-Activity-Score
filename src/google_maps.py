@@ -56,7 +56,7 @@ def create_driver(profile_path, headless=True):
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
-    options.add_argument("--lang=en-US")
+    options.add_argument("--lang=en-NG,en-US,en")
 
     driver = webdriver.Chrome(
         service=Service(get_chromedriver_path()),
@@ -64,12 +64,48 @@ def create_driver(profile_path, headless=True):
     )
     return driver
 
-def parse_price(price):
-    import re
-    digits = re.sub(r"[^\d]", "", price)
-    if digits:
-        return int(digits)
+def extract_price_from_text(text):
+    """Extracts hotel price in Naira from a text snippet, supporting ₦, NGN, and foreign currencies if served."""
+    if not text:
+        return None
+    
+    # 1. Direct Naira matches: ₦50,000 or NGN 50,000 or 50,000 NGN
+    naira_match = re.search(r'(?:₦|NGN)\s*([\d,]+)', text, re.IGNORECASE)
+    if not naira_match:
+        naira_match = re.search(r'([\d,]+)\s*(?:₦|NGN)', text, re.IGNORECASE)
+    if naira_match:
+        digits = re.sub(r"[^\d]", "", naira_match.group(1))
+        if digits:
+            val = int(digits)
+            if 3000 <= val <= 10000000:
+                return val
+
+    # 2. Fallback EUR (e.g. European cloud server IPs): ~1,700 NGN per EUR
+    eur_match = re.search(r'(?:€|EUR)\s*([\d,]+)', text, re.IGNORECASE)
+    if not eur_match:
+        eur_match = re.search(r'([\d,]+)\s*(?:€|EUR)', text, re.IGNORECASE)
+    if eur_match:
+        digits = re.sub(r"[^\d]", "", eur_match.group(1))
+        if digits:
+            val = int(digits)
+            if 5 <= val <= 10000:
+                return val * 1700
+
+    # 3. Fallback USD: ~1,550 NGN per USD
+    usd_match = re.search(r'(?:\$|USD)\s*([\d,]+)', text, re.IGNORECASE)
+    if not usd_match:
+        usd_match = re.search(r'([\d,]+)\s*(?:\$|USD)', text, re.IGNORECASE)
+    if usd_match:
+        digits = re.sub(r"[^\d]", "", usd_match.group(1))
+        if digits:
+            val = int(digits)
+            if 5 <= val <= 10000:
+                return val * 1550
+
     return None
+
+def parse_price(price):
+    return extract_price_from_text(price)
 
 def handle_consent(driver):
     """Dismisses Google's cookie consent dialogs on server / EU IPs."""
@@ -96,7 +132,7 @@ def handle_consent(driver):
 
 def search_direct(driver, lat, lng, query):
     query_encoded = query.replace(" ", "+")
-    url = f"https://www.google.com/maps/search/{query_encoded}/@{lat},{lng},15z"
+    url = f"https://www.google.com/maps/search/{query_encoded}/@{lat},{lng},15z?hl=en&gl=NG"
     driver.get(url)
     
     handle_consent(driver)
@@ -159,16 +195,11 @@ def scrape_results(driver, query, feed_xpath):
                         lat, lng = float(match.group(1)), float(match.group(2))
                         plus_code = olc.encode(lat, lng)
                 
-                driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", item)
-                
                 price_val = None
                 if is_hotel or not plus_code:
                     time.sleep(0.5)
                     driver.execute_script("arguments[0].click();", item)
-                    try:
-                        WebDriverWait(driver, 4).until(EC.presence_of_element_located((By.XPATH, "//h1")))
-                    except:
-                        time.sleep(1)
+                    time.sleep(2.0)
                         
                     # Fallback coordinate extraction from current URL
                     if not plus_code:
@@ -180,10 +211,29 @@ def scrape_results(driver, query, feed_xpath):
                             lat, lng = float(match.group(1)), float(match.group(2))
                             plus_code = olc.encode(lat, lng)
                     
+                    # Extract hotel price inside detail panel
                     if is_hotel:
-                        price_elements = driver.find_elements(By.XPATH, "//span[contains(text(), '₦')]")
-                        if price_elements:
-                            price_val = parse_price(price_elements[0].text)
+                        try:
+                            price_elements = driver.find_elements(
+                                By.XPATH, 
+                                "//div[contains(@role, 'main') or contains(@class, 'm6QErb')]//*[self::span or self::div][contains(text(), '₦') or contains(text(), 'NGN') or contains(text(), '€') or contains(text(), '$')]"
+                            )
+                            for pe in price_elements:
+                                p = extract_price_from_text(pe.text)
+                                if p:
+                                    price_val = p
+                                    break
+                        except Exception:
+                            pass
+                            
+                        # Click back to return to the search feed cleanly
+                        try:
+                            back_btns = driver.find_elements(By.XPATH, "//button[@aria-label='Back']")
+                            if back_btns:
+                                driver.execute_script("arguments[0].click();", back_btns[0])
+                                time.sleep(0.5)
+                        except Exception:
+                            pass
                         
                 results.append({
                     "name": name,

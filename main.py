@@ -54,8 +54,9 @@ def format_upload(resolution):
         
         # Drop raw/normalized intermediate columns to clean up the output
         cols_to_drop = [col for col in df_seas.columns if col.endswith('_norm')]
-        if 'seas_raw' in df_seas.columns:
-            cols_to_drop.append('seas_raw')
+        for c in ['seas_raw', 'hotel_mass', 'large_bldg_ratio']:
+            if c in df_seas.columns:
+                cols_to_drop.append(c)
             
         df_econ = df_seas.drop(columns=cols_to_drop, errors='ignore')
         df_econ = df_econ.rename(columns={'h3': 'h3_index', 'SEAS': 'score'})

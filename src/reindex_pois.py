@@ -54,28 +54,44 @@ def decode_poi_location(plus_code_raw, ref_lat=None, ref_lng=None):
         return None, None
 
 
-def reindex_pois(resolution=7):
+def reindex_pois(resolution=None):
     """
     Reads all scraped POI CSVs, resolves every POI's true H3 cell from its coordinates,
-    deduplicates search overlaps, and writes clean CSVs directly to their true H3 cells.
-    Nothing is discarded.
+    deduplicates search overlaps, and writes clean CSVs directly into their true H3 cells.
+    Only writes and retains CSV files for cells present in data/shared_h3_input.csv.
+    Discards any POIs that fall outside the target H3 input.
     """
     if not os.path.exists(DATA_DIR):
         print(f"[Re-indexer] POI directory does not exist: {DATA_DIR}. Skipping.")
         return
 
-    target_h3_set = set(get_target_h3s())
+    target_h3_list = get_target_h3s()
+    if not target_h3_list:
+        print("[Re-indexer] No target H3 cells found in data/shared_h3_input.csv. Skipping.")
+        return
+
+    # Auto-detect resolution from the input CSV if not explicitly passed
+    if resolution is None:
+        try:
+            resolution = h3.get_resolution(target_h3_list[0])
+            print(f"[Re-indexer] Auto-detected Resolution {resolution} from data/shared_h3_input.csv")
+        except Exception:
+            resolution = 7
+            print(f"[Re-indexer] Defaulting to Resolution {resolution}")
+
+    target_h3_set = set(target_h3_list)
     all_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
     if not all_files:
         print("[Re-indexer] No POI CSV files found to reindex. Skipping.")
         return
 
-    print(f"\n[Re-indexer] Starting Spatial Re-indexing across {len(all_files)} CSV files (Resolution {resolution})...")
+    print(f"\n[Re-indexer] Starting Spatial Re-indexing across {len(all_files)} CSV files (Target Resolution {resolution}, {len(target_h3_set)} Target Cells)...")
 
     # Master store: (category, true_h3) -> dict of deduplicated POIs (key -> poi_dict)
     reindexed = defaultdict(dict)
     total_pois_read = 0
     reallocated_count = 0
+    discarded_outside_count = 0
 
     for filename in all_files:
         cat_norm, search_h3 = clean_category_name(filename)
@@ -115,6 +131,11 @@ def reindex_pois(resolution=7):
             if not true_h3:
                 true_h3 = search_h3
 
+            # Filter: Discard any POI that sits outside target_h3_set
+            if true_h3 not in target_h3_set:
+                discarded_outside_count += 1
+                continue
+
             if true_h3 != search_h3:
                 reallocated_count += 1
 
@@ -134,26 +155,46 @@ def reindex_pois(resolution=7):
                 }
 
     print(f"[Re-indexer] Ingested {total_pois_read} raw records.")
+    print(f"[Re-indexer] Discarded {discarded_outside_count} POIs lying outside target H3 input cells.")
     print(f"[Re-indexer] Reallocated {reallocated_count} POIs into their true geographic H3 cells.")
 
-    # Write out clean, partitioned CSV files
+    # Write out clean, partitioned CSV files ONLY for target cells
     written_cells = set()
     total_unique_pois = 0
+    written_files = set()
 
     for (cat_norm, target_cell), pois_dict in reindexed.items():
         clean_records = list(pois_dict.values())
         total_unique_pois += len(clean_records)
         written_cells.add(target_cell)
 
-        out_path = os.path.join(DATA_DIR, f"{cat_norm}_{target_cell}.csv")
+        filename = f"{cat_norm}_{target_cell}.csv"
+        written_files.add(filename)
+        out_path = os.path.join(DATA_DIR, filename)
         with open(out_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=["name", "plus_code", "hotel_price"])
             writer.writeheader()
             writer.writerows(clean_records)
 
-    print(f"[Re-indexer] Successfully saved {total_unique_pois} unique POIs across {len(written_cells)} H3 cells.")
+    # Purge any stray CSV files in DATA_DIR whose cell is not in target_h3_set
+    deleted_stray_count = 0
+    for filename in os.listdir(DATA_DIR):
+        if not filename.endswith(".csv"):
+            continue
+        cat_norm, cell_h3 = clean_category_name(filename)
+        if not cell_h3 or cell_h3 not in target_h3_set:
+            try:
+                os.remove(os.path.join(DATA_DIR, filename))
+                deleted_stray_count += 1
+            except Exception:
+                pass
+
+    if deleted_stray_count > 0:
+        print(f"[Re-indexer] Purged {deleted_stray_count} orphan CSV files outside target input cells.")
+
+    print(f"[Re-indexer] Successfully saved {total_unique_pois} unique POIs across {len(written_cells)} target H3 cells.")
     print(f"[Re-indexer] Spatial Re-indexing complete.\n")
 
 
 if __name__ == "__main__":
-    reindex_pois(resolution=7)
+    reindex_pois()

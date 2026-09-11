@@ -6,16 +6,27 @@ from openlocationcode import openlocationcode
 
 from h3_utils import get_target_h3s
 
-RESOLUTION = 7
+DEFAULT_RESOLUTION = 7
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "POIs")
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "output", "h3_features.csv")
 
-def process_pois():
+def process_pois(resolution=None):
     target_h3_list = get_target_h3s()
 
     if not target_h3_list:
         print("No target H3 indices found in shared_h3_input.csv. Exiting.")
         return
+
+    # Auto-detect resolution from target H3 cells if not explicitly passed
+    if resolution is None:
+        try:
+            resolution = h3.get_resolution(target_h3_list[0])
+            print(f"[Feature Engineering] Auto-detected Resolution {resolution} from data/shared_h3_input.csv")
+        except Exception:
+            resolution = DEFAULT_RESOLUTION
+            print(f"[Feature Engineering] Defaulting to Resolution {resolution}")
+    else:
+        print(f"[Feature Engineering] Running with Resolution {resolution}")
 
     aggregated_data = []
     seen_h3s = set()
@@ -89,7 +100,7 @@ def process_pois():
                     lat = decoded.latitudeCenter
                     lng = decoded.longitudeCenter
 
-                    poi_h3 = h3.latlng_to_cell(lat, lng, RESOLUTION)
+                    poi_h3 = h3.latlng_to_cell(lat, lng, resolution)
                     h3_cell_distribution[poi_h3] += 1
 
                     if poi_h3 == target_h3:
@@ -120,7 +131,10 @@ def process_pois():
             print("Distribution across H3 cells:")
             for cell, cnt in h3_cell_distribution.most_common(5):
                 tag = " <-- TARGET" if cell == target_h3 else ""
-                dist = h3.grid_distance(cell, target_h3) if cell != target_h3 else 0
+                try:
+                    dist = h3.grid_distance(cell, target_h3) if cell != target_h3 else 0
+                except Exception:
+                    dist = "N/A"
                 print(f"  {cell} : {cnt} (dist: {dist}){tag}")
 
         avg_price = sum(hotel_prices) / len(hotel_prices) if hotel_prices else None

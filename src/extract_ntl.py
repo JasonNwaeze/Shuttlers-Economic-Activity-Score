@@ -14,7 +14,7 @@ def find_ntl_file(data_dir):
         raise ValueError(f"Multiple .h5 files found in {data_dir}. Expected exactly one.")
     return h5_files[0]
 
-def main():
+def main(resolution=None):
     base_dir = os.path.dirname(os.path.dirname(__file__))
     ntl_dir = os.path.join(base_dir, "data", "ntl")
     FEATURES_CSV = os.path.join(base_dir, "data", "output", "h3_features.csv")
@@ -22,7 +22,22 @@ def main():
     # Read target H3s
     df_h3 = pd.read_csv(FEATURES_CSV)
     target_h3s = set(df_h3['h3'].dropna().tolist())
-    print(f"Target H3 cells: {target_h3s}")
+    print(f"Target H3 cells count: {len(target_h3s)}")
+
+    # Auto-detect resolution from target H3 cells if not explicitly passed
+    if resolution is None and target_h3s:
+        try:
+            first_cell = next(iter(target_h3s))
+            resolution = h3.get_resolution(first_cell)
+            print(f"[NTL] Auto-detected Resolution {resolution} from h3_features.csv")
+        except Exception:
+            resolution = 7
+            print(f"[NTL] Defaulting to Resolution {resolution}")
+    elif resolution is None:
+        resolution = 7
+        print(f"[NTL] Defaulting to Resolution {resolution}")
+    else:
+        print(f"[NTL] Running with Resolution {resolution}")
     
     ntl_file = find_ntl_file(ntl_dir)
     print(f"Processing NTL file: {ntl_file}")
@@ -79,7 +94,7 @@ def main():
                 
                 longitude = lon[c]
                 
-                cell = h3.latlng_to_cell(latitude, longitude, 7)
+                cell = h3.latlng_to_cell(latitude, longitude, resolution)
                 
                 if cell in target_h3s:
                     h3_stats[cell].append(val)

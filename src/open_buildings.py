@@ -52,7 +52,7 @@ def compute_bounding_box(h3_indices, padding=0.05):
         "max_lng": max(lngs) + padding
     }
 
-def process_buildings():
+def process_buildings(resolution=None):
     """Processes the Open Buildings dataset in chunks to compute features for target H3 cells."""
     print("Loading target H3 indices...")
     target_h3_set = load_target_h3s()
@@ -60,6 +60,18 @@ def process_buildings():
     if not target_h3_set:
         print("No target H3 indices found. Exiting.")
         return
+
+    # Auto-detect resolution from target H3 cells if not explicitly passed
+    if resolution is None:
+        try:
+            first_cell = next(iter(target_h3_set))
+            resolution = h3.get_resolution(first_cell)
+            print(f"[Open Buildings] Auto-detected Resolution {resolution} from data/shared_h3_input.csv")
+        except Exception:
+            resolution = H3_RESOLUTION
+            print(f"[Open Buildings] Defaulting to Resolution {resolution}")
+    else:
+        print(f"[Open Buildings] Running with Resolution {resolution}")
 
     print("Computing bounding box for target H3 cells...")
     bbox = compute_bounding_box(target_h3_set)
@@ -101,7 +113,7 @@ def process_buildings():
             
         # 3. Compute H3
         chunk["h3"] = chunk.apply(
-            lambda row: h3.latlng_to_cell(row["latitude"], row["longitude"], H3_RESOLUTION),
+            lambda row: h3.latlng_to_cell(row["latitude"], row["longitude"], resolution),
             axis=1
         )
         

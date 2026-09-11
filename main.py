@@ -114,15 +114,15 @@ def run_pipeline(workers=2, headless=True, resolution=7):
 
     # ── Step 2: Aggregate POI features per H3 ───────────────────
     banner(2, "Feature Engineering (POIs → h3_features.csv)")
-    process_pois()
+    process_pois(resolution=resolution)
 
     # ── Step 3: Process Open Buildings footprints ────────────────
     banner(3, "Open Buildings (footprints → h3_building_features.csv)")
-    process_buildings()
+    process_buildings(resolution=resolution)
 
     # ── Step 4: Extract Nighttime Lights from satellite data ─────
     banner(4, "Nighttime Lights Extraction (NTL → h3_features.csv)")
-    extract_ntl()
+    extract_ntl(resolution=resolution)
     
     # ── Step 5: Extract Population data ──────────────────────────
     banner(5, "Population Extraction (→ h3_population.csv)")
